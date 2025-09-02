@@ -1,5 +1,7 @@
 \section{Results}
-Here is where you will describe your significant results. Typically, you will place a number of figures in the results section to illustrate your findings. For example, I tried to use TiKZ to create a simple illustration of the factor structure of general intelligence, but I don't think it's very good (see Figure~\ref{fig:TikZmodel}).
+The entrainment ratios for all resonance profiles were averaged over all frequencies and all participants separately for each EEG channel. It was determined that there was a clear focal distribution of resonant power in the frontal cortex (Figure~\ref{fig:FocalDist}). Based on this focal distribution, resonance profiles for channel Fz were selected for all subsequent analyses.
+
+Although the relationships between ASD traits (as measured by the BAPQ) and personality traits (as measured by the BFI-2S) were not related to the central hypotheses, it was essential to examine the degree of overlap between these traits, particularly in the context of interpreting how such overlap may influence differences in neural resonance (see Figure~\ref{fig:TikZmodel}).
 
 \begin{figure}[ht!]
 \centering
@@ -7,48 +9,39 @@ Here is where you will describe your significant results. Typically, you will pl
 latent/.style={circle,draw,very thick,inner sep=0pt,minimum size=25mm,align=center},
 manifest/.style={rectangle,draw,very thick,inner sep=0pt,minimum width=30mm,minimum height=10mm},
 paths/.style={->, ultra thick, >=stealth'}]
-\node [manifest] (SI) at (0,0) {Similarities};
-\node [manifest] (VO) [below=of SI] {Vocabulary};
-\node [manifest] (CO) [below=of VO] {Comprehension};
-\node [manifest] (IN) [below=of CO] {Information};
-\node [manifest] (WR) [below=of IN] {Word Reasoning};
-\node [manifest] (BD) [below=of WR] {Block Design};
-\node [manifest] (PS) [below=of BD] {Picture Concepts};
-\node [latent] (g) [left=2.5cm of IN] {\emph{g}};
-\node [latent] (Gc) [right=4.5cm of CO] {Verbal\\ Comprehension};
-\node [latent] (Gv) [right=4.5cm of BD] {Visual\\ Spatial};
-\foreach \all in {SI, VO, CO, IN, WR, BD, PS}
+\node [manifest] (SI) at (0,0) {Rigidity};
+\node [manifest] (VO) [below=of SI] {Aloofness};
+\node [manifest] (CO) [below=of VO] {Pragmaticism};
+\node [latent] (g) [left=2.5cm of VO] {\emph{BAPQ Total}};
+\node [latent] (Gc) [right=4.5cm of VO] {Conscientiousness\\ Negative Emotionality};
+\foreach \all in {SI, VO, CO}
 {
 \draw [paths] (g.east) to node { } (\all.west);
 }
-\foreach \vc in {SI, VO, CO, IN, WR}
+\foreach \vc in {SI, VO, CO}
 \draw [paths] (Gc.west) to node {} (\vc.east);
-\foreach \vs in {BD, PS}
-\draw [paths] (Gv.west) to node {} (\vs.east);
-\draw [paths, <->] (Gc) edge[bend left] node [left] {} (Gv);
 \end{tikzpicture}
-\caption{\label{fig:TikZmodel} Here is a sample of a TikZ model.}
+\caption{\label{fig:TikZmodel} Significant Correlational Relationships between Personality and ASD Traits.}
 \end{figure}
 
-In other cases, you might have an image file you want to bring into your document.  That is pretty easy to do as well as you can see in Figure \ref{fig:gearhead}.
+It was determined that there was a clear focal distribution of resonant power in the frontal cortex (Figure~\ref{fig:FocalDist}).
 
 \begin{figure}[h!] 
 \centering
-\includegraphics[width=0.3\textwidth]{frog.jpeg}
-\caption{\label{fig:gearhead}This is a another figure caption.}
+\includegraphics[width=0.3\textwidth]{Focal Dist.png}
+\caption{\label{fig:FocalDist}EEG topographical maps of resonance peaks across all frequencies.}
 \end{figure}
 
-Sometimes You may also want to display some tabular data in order to illustrate patterns in your data. Fortunately, You can do this right in \LaTeX.
+Descriptive statistics were computed for all key self-report measures, including the BAPQ subscales and the BFI-2S personality dimensions (see Table~\ref{tab:table1}).
 
-\begin{table}[h!]
-\centering
-\caption{\label{tab:RTmeans}Reaction times over training in the experimental and control groups.}
-\begin{tabular}{l l c c c}
+\begin{table}[H]
+\caption{Descriptive Statistics.}
+\label{tab:table1}
+ \begin{tabular}{l l c c c}
  \toprule
                           &              & \multicolumn{3}{c}{Week}\\
   \cmidrule{3-5}
-                          &              & {One}           & {Two}           & {Three}\\
-  \cmidrule{3-5}
+                          &              & \textbf{One}    & \textbf{Two}    & \textbf{Three}\\
   \multirow{ 2}{*}{Group} & Experimental &     1008.435    &      986.76     &      859.1     \\
                           & Control      &     996.23      &      901.67     &      1002.23   \\
   \bottomrule
