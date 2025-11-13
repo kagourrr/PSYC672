@@ -1,0 +1,731 @@
+---
+title: "Random Sampling Assignment"
+author: "Kathryn Gour"
+subtitle: "Computer Applications in the Psychological Sciences"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: true
+      toc_depth: 3
+    theme: cosmo
+  pdf_document:
+    toc: true
+    toc_depth: 2
+  word_document: default
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, message = FALSE, warning = FALSE,
+  fig.width = 7, fig.height = 4.8, dpi = 150
+)
+```
+
+# The Education Data Challenge
+
+**Overview**
+
+You will first run a script that creates a personalized "slice" of a dataset just for you. You will then perform a full analysis on your unique data.
+
+
+**Deliverable**
+A "knitted" HTML. This file must contain:
+
+- All R code chunks, including the "Setup"  chunks.
+- Your personalized output from Part 1.
+- Your complete analysis (code, output, and commentary (if requested)) for all six tasks.
+
+## Objective
+You are a data analyst for a global NGO focused on public health and well-being. You have been tasked with investigating the complex factors that predict key psychological and social outcomes around the world.
+
+*This assignment is unique to you. You will first run a script that randomly assigns you a "research portfolio"*
+
+You will then conduct analyses including:
+
+1) Bootstrapping: To build a confidence interval for a parameter.
+2) Permutation Testing: To get an assumption-free p-value for a key relationship.
+3) Cross-Validation: To test the predictive power of a model.
+
+**Deliverable**
+
+A single, "knitted" HTML file. This file must contain all R code, all R output (including the output from Part 1), all visualizations, and your written interpretations for each part.
+
+
+## Part 1: Your Personalized Data & Setup
+
+- Use this R Markdown file or start a new one.
+- Copy the entire code block below into your setup chunk.
+- Change `STUDENT NAME GOES HERE` to your actual full (First Last) name.
+- Run the chunk. This will generate your unique "my_data" dataset.
+- You will use **my_data** for all analysis.
+
+```{r DataAssignment, include=FALSE, echo=FALSE}
+# --- 1. Load all required libraries ---
+library(mlmRev)      # For the Hsb82 dataset
+library(tidyverse)   # For all data manipulation
+library(lme4)        # For Linear Mixed Models (lmer)
+library(lmerTest)    # For LMM p-values
+library(car)         # For Anova()
+library(digest)      # For hashing your name to a seed
+
+# --- 2. !! ENTER YOUR NAME HERE !! ---
+YOUR_NAME <- "Kathryn Gour" 
+# --- !! (No, really, change it to your name) !! ---
+
+if (YOUR_NAME == "STUDENT NAME GOES HERE") {
+  warning("Please change YOUR_NAME to your actual name to get your unique assignment.")
+}
+
+# --- 3. Generate your unique seed ---
+hex_hash <- digest(YOUR_NAME, algo = "crc32", serialize = FALSE)
+hex_substr <- substr(hex_hash, 1, 7)
+student_seed <- strtoi(hex_substr, base = 16L)
+
+# --- 4. Set the seed ---
+set.seed(student_seed) 
+
+# --- 5. Load and create your unique dataset ---
+data(Hsb82) # Load the dataset
+
+# This is your unique "slice" of the data
+my_data <- Hsb82 %>% 
+  sample_frac(0.90) # Take a 90% random slice
+
+# --- 6. Print a verification message ---
+cat("--- DATASET GENERATED ---",
+    "\nYour Name:", YOUR_NAME,
+    "\nYour Seed:", student_seed,
+    "\nYour unique dataset 'my_data' has", nrow(my_data), "rows.",
+    "\nUse 'my_data' for all analysis.")
+```
+The variable 'my_data' contains 8 variables:
+
+* school - an ordered factor designating the school that the student attends.
+* minrty - a factor indicating whether an individual is considered part of a minority group (Yes/No)
+* sx - a factor with levels Male and Female
+* ses - a numeric vector of socio-economic scores
+* mAch - a numeric vector of Mathematics achievement scores
+* meanses - a numeric vector of mean ses for the school
+* sector - a factor with levels Public and Catholic
+* cses - a numeric vector of centered ses values where the centering is with respect to the meanses for the school.
+
+---
+
+# Part 2: The Analysis
+
+Complete the following tasks using your my_data dataset.
+
+
+## Task 1: Inspect Your Data 
+
+Describe your data: 
+"my_data contains data from *N_subjects* students across *N_schools* schools. *N_female* of the students were female and *N_male* were male.  *N_public* of the schools were public sector and *N_catholic* schools were private sector. *N_minority* of the students were considered to be part of a minority racial/ethnic group while *N_majority* individuals were considered not to be part of a minority group.
+
+Visualize your data:
+Create visual summaries for socioeconomic status (ses) and mathematics achievement (mAch).
+
+```{r}
+# INSERT YOUR CODE HERE
+# Number of students (rows)
+N_subjects <- nrow(my_data)
+
+# Number of schools (count unique factor levels)
+N_schools <- length(levels(my_data$school))
+
+# Gender counts
+N_female <- sum(my_data$sx == "Female", na.rm = TRUE)
+N_male   <- sum(my_data$sx == "Male", na.rm = TRUE)
+
+# School sector counts
+N_public   <- sum(my_data$sector == "Public", na.rm = TRUE)
+N_catholic <- sum(my_data$sector == "Catholic", na.rm = TRUE)
+
+# Minority group counts
+N_minority <- sum(my_data$minrty == "Yes", na.rm = TRUE)
+N_majority <- sum(my_data$minrty == "No", na.rm = TRUE)
+
+# Print summary statement
+cat(
+  "my_data contains data from", N_subjects, "students across", N_schools, "schools.\n",
+  N_female, "of the students were female and", N_male, "were male.\n",
+  N_public, "of the schools were public sector and", N_catholic, "schools were private sector.\n",
+  N_minority, "of the students were considered part of a minority racial/ethnic group while",
+  N_majority, "were not.\n"
+)
+
+library(ggplot2)
+
+# histo for SES
+ggplot(my_data, aes(x = ses)) +
+  geom_histogram(bins = 30, fill = "seagreen", color = "black") +
+  labs(title = "Distribution of Socioeconomic Status (SES)",
+       x = "SES", y = "Count") +
+  theme_minimal()
+
+# histo for Math Achievement
+ggplot(my_data, aes(x = mAch)) +
+  geom_histogram(bins = 30, fill = "rosybrown2", color = "black") +
+  labs(title = "Distribution of Mathematics Achievement (mAch)",
+       x = "Math Achievement", y = "Count") +
+  theme_minimal()
+
+```
+
+## Task 2: lm (Linear Model)
+
+1) Run a simple linear model (lm) predicting mAch from ses.
+
+2) Save this value (hint: use `task1_ses_coef <- coef(YOUR MODEL FIT)[2]` to store the coefficient)
+
+3) Use the `confint()` function to get parametric 95% confidence intervals for the "ses" coefficient (e.g., `confint(YOUR_MODEL_FIT)`)
+
+4) Save the upper and lower bounds as `task1_ci_lower` and `task1_ci_upper`
+
+5) Comment briefly on the results of the analysis
+
+```{r}
+# INSERT YOUR CODE HERE
+mAch_model <- lm(mAch ~ ses, data = my_data)
+summary(mAch_model)
+
+# save the SES coefficient
+task1_ses_coef <- coef(mAch_model)[2]
+
+# 3) Get 95% confidence intervals
+ci <- confint(mAch_model)
+
+# save lower and upper bounds for the SES coefficient
+task1_ci_lower <- ci["ses", 1]
+task1_ci_upper <- ci["ses", 2]
+
+# print results
+cat("SES coefficient:", round(task1_ses_coef, 3), "\n")
+cat("95% CI: [", round(task1_ci_lower, 3), ",", round(task1_ci_upper, 3), "]\n")
+
+```
+
+**ADD YOUR COMMENTARY HERE**
+A linear regression analysis was conducted to assess how well socio-economic status can predict mathematics achievement scores. The results indicated that SES is a strong, significant predictor of math achievement (b = 3.24, p < .001). Furthermore, it was found that SES predicted 13.52% of the variance in math achievement. 
+---
+
+## Task 3: Bootstrap CI
+
+1) Use a for loop (1000 iterations) to find the bootstrapped 95% CI for the "ses" coefficient in Task #2.
+
+2) Set your personalized random seed (`set.seed(student_seed)`) right before the loop.
+
+3) On each iteration, resample the rows of my_data (with replacement!), recompute the "ses" coefficient and store it for later.
+
+4) When the iterations are finished:
+  a) use the `quantile()` function to find the bootstrap coefficient values at the 2.5% and 97.5% quantile.
+  b) create a labeled histogram of the bootstrapping coefficients.
+  c) label the 2.5% and 97.5% quantiles on your histogram (hint: `geom_vline(xintercept = 4, color = "red", linewidth = 1.2, linetype = "dashed"` will create a vertial, red, dashed line on the plot that crosses at X=4)
+
+5) Save the upper and lower bounds as `task2ci_lower` and `task2_ci_upper`
+
+6) Briefly comment on a comparison of the confidence intervals from Task #1 and Task #2.  Are the confidence intervals different from one another? How?
+
+```{r}
+# INSERT YOUR CODE HERE
+# # --- 2. Initialize ---
+# n_boot <- 10000
+# boot_diffs <- numeric(n_boot)
+# 
+# # --- 3. Write your bootstrap loop ---
+# # HINT: You need to sample *with replacement* from group_oj
+# # and *separately* sample with replacement from group_vc.
+# for (i in 1:n_boot) {
+  # boot_oj <- sample(...)
+  # boot_vc <- sample(...)
+  # boot_diffs[i] <- mean(boot_oj) - mean(boot_vc)
+#}
+
+# --- 4. Plot your bootstrap distribution ---
+# (Make a histogram of boot_diffs)
+
+# --- 5. Calculate the 95% CI ---
+# (Use the quantile() function on boot_diffs)
+
+# --- 6. Compare to the t.test() ---
+# classic_test <- t.test(len ~ supp, data = ToothGrowth)
+# print(classic_test$conf.int)
+
+# set random seed
+set.seed(student_seed)
+
+# number of bootstrap samples
+n_boot <- 1000
+boot_diffs <- numeric(n_boot)
+
+# bootstrap loop
+for (i in 1:n_boot) {
+  boot_data <- my_data[sample(1:nrow(my_data), replace = TRUE), ]
+  
+  # fit the same model on the bootstrapped sample
+  boot_model <- lm(mAch ~ ses, data = boot_data)
+  
+  # store the SES coefficient
+  boot_diffs[i] <- coef(boot_model)[2]
+}
+
+# 95% bootstrap confidence interval using quantiles
+task2_ci_lower <- quantile(boot_diffs, 0.025)
+task2_ci_upper <- quantile(boot_diffs, 0.975)
+
+# results
+cat("Bootstrap 95% CI for SES coefficient: [",
+    round(task2_ci_lower, 3), ",", round(task2_ci_upper, 3), "]\n")
+
+# histo of bootstrap coefficients
+boot_df <- data.frame(boot_diffs = boot_diffs)
+
+ggplot(boot_df, aes(x = boot_diffs)) +
+  geom_histogram(color = "black", fill = "skyblue", bins = 30) +
+  geom_vline(xintercept = task2_ci_lower, color = "red",
+             linewidth = 1.2, linetype = "dashed") +
+  geom_vline(xintercept = task2_ci_upper, color = "red",
+             linewidth = 1.2, linetype = "dashed") +
+  labs(title = "Bootstrap Distribution of SES Coefficients",
+       x = "SES Coefficient", y = "Frequency") +
+  theme_minimal()
+
+```
+
+**ADD YOUR COMMENTARY HERE**
+A bootstrap analysis was performed to assess the 95% confidence interval of socio-economic status. Results indicated that the bootstrapped SES coefficient does have a similar CI (CI = [3.06, 3.42]) to the linear model estimate (CI = [3.04, 3.44]). This indicates that our model estimates are reasonable.
+---
+
+## Task 4: car::Anova (Factorial ANOVA)
+
+1) Run a factorial ANOVA model testing the interaction between School Type (`sector`) and Sex (`sx`) on Mathematical Achievement (`mAch`). Use car::Anova() to get the Type III F-statistic and probability value for the interaction.
+
+2) Save the F and p values as `task4_Fstat` and `task4_Pval` (hint: `YOUR_MODEL_FIT$`F value`[2]` will return the F statistic)
+
+3) Comment briefly on the results of the analysis
+
+```{r}
+# INSERT YOUR CODE HERE
+# factorial ANOVA
+anova_model <- lm(mAch ~ sector * sx, data = my_data)
+
+# Get Type III ANOVA table
+anova_results <- car::Anova(anova_model, type = 3)
+anova_results
+
+# save F and p values for the interaction term
+task4_Fstat <- anova_results["sector:sx", "F value"]
+task4_Pval  <- anova_results["sector:sx", "Pr(>F)"]
+
+cat("Interaction F-statistic:", round(task4_Fstat, 3), "\n")
+cat("Interaction p-value:", round(task4_Pval, 4), "\n")
+
+```
+
+**ADD YOUR COMMENTARY HERE**
+A factorial ANOVA was conducted to assess whether or not there is a statistically significant interaction between school sector and student sex on math achievement. The results indicated that there is a significant interaction (F(1, 6462) = 1.34, p < .001). This suggests that the relationship between sex and math performance differs by school type (i.e., males and females perform differently in public vs. Catholic schools).
+---
+
+## Task 5: Permutation Test (p-value)
+
+1) Use a `for` loop (1000 iterations) to conduct a permutation test in order to get an assumption-free p-value for the F-test of the interaction between School Type and Sex in Task #2.
+
+2) Be sure to set your personalized random seed (`set.seed(student_seed)`) immediately before the loop.
+
+Each iteration should:
+
+3) Shuffle the sex label
+
+4) Calculate and *save* the permuted F-statistic
+
+5) When the iterations are finished, calculate the p-value by finding the proportion of "null" F-stats that are equal to or more extreme than your observed F-statistic.
+
+6) Save this value as `task5_perm_p_value` <- ... (your final calculated p-value)
+
+7) Generate a histogram showing the distribution of all "null" F-stats and add a vertical line showing the value of your observed F-stat.
+
+8) Comment on your comparison of the parametric p-value returned by the lm() function and your distribution-free, permutation p-value.
+
+```{r}
+# INSERT YOUR CODE HERE
+set.seed(student_seed)
+
+# observed F-statistic
+anova_model <- lm(mAch ~ sector * sx, data = my_data)
+anova_results <- car::Anova(anova_model, type = 3)
+observed_F <- anova_results["sector:sx", "F value"]
+
+n_boots <- 1000
+
+# vector to store F-stats from permuted data
+perm_Fstats <- numeric(n_boots)
+
+# loop
+for (i in 1:n_boots) {
+  # shuffle the sex labels
+  permuted_data <- my_data
+  permuted_data$sx <- sample(permuted_data$sx, replace = FALSE)
+  
+  # fit the same model on permuted data
+  perm_model <- lm(mAch ~ sector * sx, data = permuted_data)
+  perm_results <- car::Anova(perm_model, type = 3)
+  perm_Fstats[i] <- perm_results["sector:sx", "F value"]
+}
+
+# permutation p-value
+task5_perm_p_value <- mean(perm_Fstats >= observed_F)
+
+cat("Observed F-statistic:", round(observed_F, 3), "\n")
+cat("Permutation p-value:", round(task5_perm_p_value, 4), "\n")
+
+# histo of null f-stats
+perm_df <- data.frame(F_stat = perm_Fstats)
+
+ggplot(perm_df, aes(x = F_stat)) +
+  geom_histogram(color = "black", fill = "lightblue", bins = 30) +
+  geom_vline(xintercept = observed_F, color = "red",
+             linewidth = 1.2, linetype = "dashed") +
+  labs(title = "Permutation Test: Null Distribution of Interaction F-Statistics",
+       x = "F-statistic (sector × sex interaction)",
+       y = "Frequency") +
+  theme_minimal()
+```
+
+**ADD YOUR COMMENTARY HERE**
+A bootstrapped ANOVA estimation was conducted over 1000 iterations. Results revealed that the observed F-statistic and permutation p-value are NOT similar to the previous analyses' values ((F(1, 6462) = 1.34, p < .001; F = 1.33, p = .256). This suggests that our non-boostrapped test may have underestimated the uncertainty in our estimate.
+---
+
+## Task 6: Cross-Validation RMSE
+
+Write a for loop to perform a 10-fold cross-validation on a simple lm predicting mAch from ses and sector.
+
+1) Set your personalized random seed (`set.seed(student_seed)`) and create a fold column (hint: use the sample function to create your fold column)
+
+2) Write your for loop to iterate from i = 1 to 10.
+
+3) Inside the loop, create train_data (fold != i) and test_data (fold == i).
+
+4) Run your lm().
+
+5) Use predict() to get predictions for test_data.
+
+6) Calculate the SS_resid (sum of squared residuals)
+
+7) Calculate the R-squared `1-(SS_resid/SS_total)` and store it in a vector.
+
+8) When the loop is finished, you should have 10 estimates of the R-squared. Calculate the average of these 10 values to get your 10-fold cross-validated R^2.
+
+9) Save this cross-validated R^2 as `task6_cv_r2` <- ... (the mean() of your 10 R^2 results)
+
+10) Briefly comment on your comparison of the cross-validated $R^2$ with the original $R^2$ from Task #2
+
+```{r}
+# # 1. Add a "fold" ID to our data
+# # We'll use 5 folds for this example
+# data(cars)
+# set.seed(123) # for reproducibility
+# cars_folded <- cars %>%
+#   mutate(fold = sample(1:5, size = nrow(cars), replace = TRUE))
+# 
+# # 2. Initialize
+# # Create an empty vector to store our 5 R-squared values
+# fold_r2s <- numeric(5) # We have 5 folds
+# 
+# # 3. Loop
+# for (i in 1:5) {
+#   
+#   # a/b. Split into training and testing
+#   # The test data is just the data for the current fold 'i'
+#   test_data  <- cars_folded %>% filter(fold == i)
+#   
+#   # The training data is everything else
+#   train_data <- cars_folded %>% filter(fold != i)
+#   
+#   # c. Model: Build *only* on the training data
+#   model <- lm(dist ~ speed, data = train_data)
+#   
+#   # d. Predict: Test on the hold-out fold
+#   predictions <- predict(model, newdata = test_data)
+#   # note: The predict() function was written to use "newdata" instead of data to make it clear that you are passing in new observations, not the original data used to build the model.
+#   
+#   # e. Store R-squared from the *test* data
+#   # We have to calculate R-squared manually from the test predictions
+#   ss_total <- sum((test_data$dist - mean(test_data$dist))^2)
+#   ss_resid <- sum((test_data$dist - predictions)^2)
+#   fold_r2s[i] <- 1 - (ss_resid / ss_total)
+# }
+# 
+# # 5. Finish
+# print("R-squared from each of the 5 folds:")
+# print(round(fold_r2s, 3))
+# 
+# print(paste("Average Cross-Validated R-squared:", round(mean(fold_r2s), 3)))
+# 
+# # Compare this to the "overly optimistic" R-squared
+# optimistic_r2 <- summary(lm(dist ~ speed, data = cars))$r.squared
+# print(paste("Optimistic R-squared from the full dataset:", round(optimistic_r2, 3)))
+
+# INSERT YOUR CODE HERE
+set.seed(student_seed)
+
+# create 10 folds
+my_data$fold <- sample(rep(1:10, length.out = nrow(my_data)))
+
+# empty vector to store R-squared values
+cv_r2 <- numeric(10)
+
+# 10-fold cross-validation loop
+for (i in 1:10) {
+  
+  # split into training and testing data
+  train_data <- subset(my_data, fold != i)
+  test_data  <- subset(my_data, fold == i)
+  
+  # fit model on training data
+  model <- lm(mAch ~ ses + sector, data = train_data)
+  
+  # predict on test data
+  preds <- predict(model, newdata = test_data)
+  
+  # calculate SS_resid and SS_total
+  SS_resid <- sum((test_data$mAch - preds)^2)
+  SS_total <- sum((test_data$mAch - mean(test_data$mAch))^2)
+  
+  # calculate R-squared for this fold
+  cv_r2[i] <- 1 - (SS_resid / SS_total)
+}
+
+# average R-squared across all 10 folds
+task6_cv_r2 <- mean(cv_r2)
+
+print("R-squared from each of the 10 folds:")
+print(round(cv_r2, 3))
+
+print(paste("Average Cross-Validated R-squared:", round(mean(task6_cv_r2), 3)))
+ 
+# Compare this to the "original" R-squared
+mAch_r2 <- summary(lm(mAch ~ ses, data = my_data))$r.squared
+print(paste("Mathematic Achievement R-squared from the full dataset:", round(mAch_r2, 3)))
+```
+
+**ADD YOUR COMMENTARY HERE**
+A 10-fold cross-validation on a simple lm predicting mAch from ses and sector was used to assess the fit of the previous regression model. The average cross-validated R-squared was 0.152 while the original R-squared was 0.135. Because our cross-validated R-squared was larger than our original model's estimate, it indicates that the data may contain excess noise, and thus may not work well with new data.
+---
+
+## Task #7 Choose Your Own Adventure
+
+For this last set of analyses we will use the Australian AIDS Survival Data containing data on patients diagnosed with AIDS in Australia before 1 July 1991.
+
+The data frame consists of the following variables:
+
+- state: Grouped state of origin: "NSW "includes ACT and "other" is WA, SA, NT and TAS
+- sex: Sex of patient.
+- diag: (Julian) date of diagnosis.
+  - Number of days since January 1st, 1970
+- death: (Julian) date of death or end of observation.
+  - Number of days since Janurary 1st, 1970
+- status: "A" (alive) or "D" (dead) at end of observation.
+- T.categ: Reported transmission category.
+  - hs: Homosexual/Bisexual (transmission via same-sex contact)
+  - haem: Haemophiliac (transmission via contaminated blood products for haemophilia)
+  - other: Other or Unknown (a catch-all category)
+  - hsid: Homosexual/Bisexual and Intravenous Drug User (a person in both risk categories)
+  - het: Heterosexual (transmission via heterosexual contact)
+  - id: Intravenous Drug User (transmission via shared needles)
+  - mother: Mother-to-Child (vertical transmission, from mother to baby)
+  - blood: Blood Transfusion (transmission via a contaminated blood transfusion)
+- age: Age (years) at diagnosis.
+
+```{r}
+# MASS is a core R package, it should be installed.
+library(MASS) 
+library(tidyverse)
+
+# Load the dataset
+data(Aids2)
+```
+
+One of the first things you will notice about these data is that some of the measures are highly skewed. For example, take a look at the histogram below showing the distribution of the number of days between diagnosis and death.
+
+```{r, echo=FALSE}
+Aids2 %>%
+  mutate(SurvivalDays=death-diag) %>%
+  ggplot(aes(x = SurvivalDays)) +
+    geom_histogram(binwidth = 100, alpha = 0.5, position = "identity") +
+    labs(title = "Days from Diagnosis to Death",
+       x = "Days from Diagnosis to Death",
+       subtitle = "NOTE: Data is extremely positively-skewed") +
+    theme_minimal() 
+```
+
+Your task is to conduct two separate analyses in order to determine the factors that might be related to increased survival time.
+
+**Analysis #1**
+
+1) State a hypothesis that involves comparing means across conditions (e.g, t-test or ANOVA).
+**Compare transmission type and age. Specifically, we want to assess whether or not transmission types significantly vary between the mean age at diagnosis. We hypothesize that mean age at diagnosis differs across transmission categories, such that younger people may have more drug related transmission types.**
+2) Create a summary plot for your analysis (e.g., bar chart, violin plot, etc.)
+```{r}
+library(ggplot2)
+
+# violin plot showing age distributions by transmission type
+ggplot(Aids2, aes(x = T.categ, y = age, fill = T.categ)) +
+  geom_violin(trim = FALSE, alpha = 0.7) +
+  geom_boxplot(width = 0.1, color = "black", alpha = 0.3) +
+  scale_fill_brewer(palette = "Set3") +
+  labs(
+    title = "Distribution of Age at Diagnosis by Transmission Type",
+    x = "Transmission Category",
+    y = "Age at Diagnosis"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")
+
+```
+3) Conduct a standard parametric statistical analysis (e.g., `t.test()`, `lm()`, `car::Anova()`) to test the hypothesis.
+```{r}
+model_age <- lm(age ~ T.categ, data = Aids2)
+car::Anova(model_age, type = 3)
+TukeyHSD(aov(model_age))
+```
+**Describe the Result:**
+An ANOVA was conducted to assess if mean age at diagnosis differs across transmission types. The results indicated that mean age does significantly differ across transmission types (F(7, 2835) = 32.05, p < .001). Tukey HSD post-hoc tests were used to investigate which transmission types significantly differ by mean age at diagnosis. Results indicated that mother-to-child transmission was the youngest group, while blood transfusion and “other/unknown” transmission types were typically older at diagnosis. It was also found that homosexual/bisexual, IV drug users, and combined transmission categories were middle age when diagnosed, but differed by a few years.
+---
+4) Conduct a non-parametric permutation analysis using the mean to test the same hypothesis
+```{r}
+# # --- 1. Calculate your OBSERVED difference ---
+# # (You already have this from Task 1: mean(group_oj) - mean(group_vc))
+# observed_diff <- mean(group_oj) - mean(group_vc)
+# 
+# # --- 2. Initialize ---
+# n_perm <- 10000
+# null_diffs <- numeric(n_perm)
+# all_outcomes <- ToothGrowth$len
+# all_labels   <- ToothGrowth$supp
+# 
+# # --- 3. Write your permutation loop ---
+# # HINT: You need to sample *without replacement* (shuffle)
+# # the *all_labels* vector.
+# for (i in 1:n_perm) {
+#   # shuffled_labels <- sample(...)
+#   # fake_mean_oj <- mean(all_outcomes[shuffled_labels == "OJ"])
+#   # ...
+#   # null_diffs[i] <- ...
+# }
+
+set.seed(1234)
+n_perm <- 1000  # number of permutations
+
+# get observed F value 
+obs_F <- car::Anova(model_age, type = 3)$"F value"[2]  # row 2 is T.categ
+
+# initialize
+perm_F <- numeric(n_perm)
+
+# permutation loop 
+for (i in 1:n_perm) {
+  shuffled <- sample(Aids2$T.categ)  # shuffle group labels
+  perm_model <- aov(age ~ shuffled, data = Aids2)
+  perm_F[i] <- summary(perm_model)[[1]][1, "F value"]
+}
+
+p_val_mean <- mean(perm_F >= obs_F)
+print(paste("The p-value for the non-parametric ANOVA using the mean is", p_val_mean))
+
+```
+
+5) Conduct a non-parametric permutation analysis using the median to test the same hypothesis
+```{r}
+set.seed(1234)
+n_perm <- 1000
+
+# observed statistic: variance of group medians
+obs_med_stat <- var(tapply(Aids2$age, Aids2$T.categ, median, na.rm = TRUE))
+
+# permutation loop
+perm_med <- numeric(n_perm)
+for (i in 1:n_perm) {
+  shuffled <- sample(Aids2$T.categ)
+  perm_med[i] <- var(tapply(Aids2$age, shuffled, median, na.rm = TRUE))
+}
+
+# permutation p-value
+p_val_median <- mean(perm_med >= obs_med_stat)
+print(paste("The p-value for the non-parametric ANOVA using the median is", p_val_median))
+
+```
+6) Write a few sentences describing your comparison of the three results and explain why they are or are not different.
+**Comparison:** Even when we ignore parametric assumptions and generate a null distribution by permutation, for both the mean and median, the F-statistic remains extreme and the p-value approaches zero, confirming that age differs significantly across transmission categories. This matches up with our original parametric ANOVA results.
+---
+**Analysis #2**
+
+1) State a hypothesis that involves assessing the relationship between two continuous variables (e.g, `lm()`).
+  - *NOTE: You are welcome to use categorical predictors to test interactions, but this is not required*
+  **We hypothesize that age at diagnosis significantly predicts survival time after diagnosis.**
+2) Create a summary plot for your analysis (e.g., scatterplot)
+```{r}
+# we want to assess how long people survive after being diagnosed with AIDs
+# to do this i need to create survival time vars
+# i did have to ask copilot the best way to calculate survival years
+
+# create survival time (years)
+Aids2$surv_days  <- Aids2$death - Aids2$diag
+Aids2$surv_years <- Aids2$surv_days / 365.25
+
+# remove non-positive or NA survival times
+Aids2_clean <- subset(Aids2, !is.na(surv_years) & surv_years > 0 & !is.na(age))
+
+# scatterplot
+ggplot(Aids2_clean, aes(x = age, y = surv_years)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE) +   # linear fit + CI
+  geom_smooth(method = "loess", se = FALSE, linetype = "dashed") +
+  labs(
+    title = "Survival Time (years) after Diagnosis vs Age at Diagnosis",
+    x = "Age at Diagnosis (years)",
+    y = "Survival Time (years)"
+  ) +
+  theme_minimal()
+```
+3) Conduct a standard parametric statistical analysis (e.g.,`lm()`) to test the hypothesis.
+```{r}
+# standard model (predict survival time from age at diagnosis)
+model_surv_age <- lm(surv_years ~ age, data = Aids2_clean)
+summary(model_surv_age)
+confint(model_surv_age, level = 0.95)
+```
+4) Use bootstrapping to estimate the 95% confidence interval for the parameter central to your hypothesis.
+```{r}
+# # Get the 95% confidence interval
+# boot_ci <- quantile(boot_medians, probs = c(0.025, 0.975))
+# 
+# print(boot_ci)
+#Want a CI for a regression coefficient? Use coef(lm(y ~ x, data = boot_df))[2].
+
+set.seed(2002)   
+n_boot <- 2000        
+
+n <- nrow(Aids2_clean)
+boot_slope <- numeric(n_boot)
+boot_intercept <- numeric(n_boot)
+
+for (b in 1:n_boot) {
+  idx <- sample.int(n, size = n, replace = TRUE)  
+  datb <- Aids2_clean[idx, ]
+  fitb <- lm(surv_years ~ age, data = datb)
+  boot_slope[b]     <- coef(fitb)[2]
+}
+
+# bootstrap percentile 95% CI for slope
+boot_ci <- quantile(boot_slope, probs = c(0.025, 0.975))
+
+print(paste("Here is the 95% CI bootstrapped estimate:",boot_ci))
+
+```
+5) Write a few sentences describing your comparison of the 95% CI from the parametric and nonparametric analyses.
+**Comparison:** The parametric regression analysis revealed that age at diagnosis does significantly predict survival time (in years) and explains 1.2% of the variance in survival time (b = -.01, F(1, 2812) = 34.59, p < .001). The 95% confidence interval for the parametric test was [-.015, -.007]. A bootstrapped confidence interval was generated to assess the original model fit. Results indicated that the bootstrapped CI was very similar to the parametric CI [-.015, -.007]. This indicates that the parametric assumptions we made were reasonable and that our model fit is generally good.
